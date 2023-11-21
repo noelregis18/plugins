@@ -15,7 +15,6 @@
   "dependencies": {
     "@amplication/code-gen-types": "^2.0.17",
     "@amplication/code-gen-utils": "^0.0.7",
-    "graphql-upload": "^13.0.0",
     "lodash": "^4.17.21"
   },
   "devDependencies": {
