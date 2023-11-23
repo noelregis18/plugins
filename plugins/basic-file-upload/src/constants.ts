@@ -34,3 +34,9 @@ export const serverPackageJsonValues = {
 
 export const staticsPath = join(__dirname, "static");
 export const templatesPath = join(__dirname, "templates");
+
+export const generateInvalidFileFieldError = (
+  entityName: string,
+  fieldName: string,
+) =>
+  `DataType of field: ${fieldName} should be JSON on entity: ${entityName}. As you've prefixed it with "file..." it should be a JSON field to store the file metadata else you can use any other prefix.`;
