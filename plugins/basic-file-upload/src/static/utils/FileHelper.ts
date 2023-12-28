@@ -1,8 +1,8 @@
 import { diskStorage } from "multer";
 import { FileUpload, GraphQLUpload } from "graphql-upload";
-import fs from "fs";
-import path from "path";
-import crypto from "crypto";
+import * as fs from "fs";
+import * as path from "path";
+import * as crypto from "crypto";
 
 export const generateMulterOptions = (
   entity: string,
