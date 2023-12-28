@@ -2,6 +2,7 @@ import type {
   AmplicationPlugin,
   CreateAdminUIParams,
   CreateDTOsParams,
+  CreateEntityControllerBaseParams,
   CreateServerDotEnvParams,
   CreateServerMainParams,
   CreateServerPackageJsonParams,
@@ -17,7 +18,7 @@ import {
   removeTSClassDeclares,
 } from "@amplication/code-gen-utils";
 import { EnumDataType, EventNames } from "@amplication/code-gen-types";
-import { builders } from "ast-types";
+import { builders, namedTypes } from "ast-types";
 import { after, merge } from "lodash";
 import { join, resolve } from "path";
 import {
@@ -26,7 +27,18 @@ import {
   serverPackageJsonValues,
   templatesPath,
 } from "./constants";
-import { addImports, interpolate } from "./utils";
+import {
+  addAutoGenerationComment,
+  addImports,
+  addInjectableDependency,
+  getClassDeclarationById,
+  interpolate,
+} from "./utils";
+import {
+  EnumTemplateType,
+  controllerMethodsIdsActionPairs,
+} from "./utils/create-method-id-action-entity-map";
+import { setFileUploadFields } from "./utils/set-endpoint-permissions";
 
 class BasicFileUploadPlugin implements AmplicationPlugin {
   /**
@@ -51,6 +63,9 @@ class BasicFileUploadPlugin implements AmplicationPlugin {
       },
       [EventNames.CreateServerMain]: {
         after: this.afterCreateServerMain,
+      },
+      [EventNames.CreateEntityControllerBase]: {
+        before: this.beforeCreateEntityControllerBase,
       },
     };
   }
@@ -92,15 +107,9 @@ class BasicFileUploadPlugin implements AmplicationPlugin {
   ): Promise<ModuleMap> {
     // Here you can get the context, eventParams and the modules that Amplication created.
     // Then you can manipulate the modules, add new ones, or create your own.
-    const staticPath = resolve(__dirname, "./static");
-    const staticsFiles = await context.utils.importStaticModules(
-      staticPath,
-      context.serverDirectories.srcDirectory + "/util",
-    );
-    await modules.merge(staticsFiles);
+    const { entities, logger, serverDirectories } = context;
 
     // Independent Event
-    const { entities } = context;
 
     // A map sort of all the entities which will store all the entities that have file fields
     const entitiesWithOnlyFileFields: { [key: string]: string[] } = {};
@@ -114,20 +123,22 @@ class BasicFileUploadPlugin implements AmplicationPlugin {
       });
     });
 
+    if (Object.keys(entitiesWithOnlyFileFields).length === 0) {
+      context.logger.warn(
+        "No file fields found. Either add file fields or disable the plugin",
+      );
+      // TODO? Throw error over here and stop the process?
+      return modules;
+    }
+
     // Add the EntityFileArgs files
     if (Object.keys(entitiesWithOnlyFileFields).length > 0) {
       Object.keys(entitiesWithOnlyFileFields).forEach(async (entityName) => {
-        context.logger.info(`Creating ${entityName}FileArgs.ts file...`);
+        logger.info(`Creating ${entityName}FileArgs.ts file...`);
         const entityNameToLower = entityName.toLowerCase();
         const template = await readFile(
           join(templatesPath, "entityFileArgs.template.ts"),
         );
-        // const entityFileArgsImport = importNames(
-        //   [builders.identifier(entityName)],
-        //   `../${entityNameToLower}/${entityNameToLower}.entity`,
-        // );
-        // const entityFileArgsImport =
-
         interpolate(template, {
           ENTITY_FILES_ARRAY: builders.arrayExpression(
             entitiesWithOnlyFileFields[entityName].map((fieldName) =>
@@ -140,14 +151,26 @@ class BasicFileUploadPlugin implements AmplicationPlugin {
           ),
         });
 
+        const filePath = `${serverDirectories.srcDirectory}/${entityNameToLower}/base/${entityName}FileArgs.ts`;
+
+        addAutoGenerationComment(template);
+
         modules.set({
           code: print(template).code,
-          path: `${context.serverDirectories.srcDirectory}/${entityNameToLower}/base/${entityName}FileArgs.ts`,
+          path: filePath,
         });
 
-        context.logger.info(`Created ${entityName}FileArgs.ts file...`);
+        logger.info(`Created ${entityName}FileArgs.ts file...`);
       });
     }
+
+    // Add FileHelper.ts for common file utilities
+    const fileUploadUtilPath = resolve(__dirname, "./static/utils");
+    const fileUploadUtilFile = await context.utils.importStaticModules(
+      fileUploadUtilPath,
+      serverDirectories.srcDirectory + "/util",
+    );
+    await modules.merge(fileUploadUtilFile);
 
     return modules; // You must return the generated modules you want to generate at this part of the build.
   }
@@ -273,6 +296,101 @@ class BasicFileUploadPlugin implements AmplicationPlugin {
     await modules.replaceModulesCode((path, code) => formatCode(path, code));
 
     return modules;
+  }
+
+  beforeCreateEntityControllerBase(
+    context: DsgContext,
+    eventParams: CreateEntityControllerBaseParams,
+  ) {
+    const { templateMapping, entity, template, controllerBaseId } = eventParams;
+
+    interpolate(template, templateMapping);
+
+    const classDeclaration = getClassDeclarationById(
+      template,
+      controllerBaseId,
+    );
+
+    const fileFieldsInterceptorImport = builders.importDeclaration(
+      [builders.importSpecifier(builders.identifier("FileFieldsInterceptor"))],
+      builders.stringLiteral("@nestjs/platform-express"),
+    );
+
+    // const defaultAuthGuardImport = builders.importDeclaration(
+    //   [builders.importSpecifier(builders.identifier("defaultAuthGuard"))],
+    //   builders.stringLiteral("../../auth/defaultAuth.guard"),
+    // );
+
+    // const ignoreComment = builders.commentLine("// @ts-ignore", false);
+
+    // if (!defaultAuthGuardImport.comments) {
+    //   defaultAuthGuardImport.comments = [];
+    // }
+
+    // defaultAuthGuardImport.comments.push(ignoreComment);
+
+    addImports(
+      eventParams.template,
+      [fileFieldsInterceptorImport].filter(
+        (x) => x, //remove nulls and undefined
+      ) as namedTypes.ImportDeclaration[],
+    );
+
+    const swaggerDecorator = builders.decorator(
+      builders.callExpression(
+        builders.memberExpression(
+          builders.identifier("swagger"),
+          builders.identifier("SWAGGER_API_AUTH_FUNCTION"),
+        ),
+        [],
+      ),
+    );
+
+    const guardDecorator = builders.decorator(
+      builders.callExpression(
+        builders.memberExpression(
+          builders.identifier("common"),
+          builders.identifier("UseGuards"),
+        ),
+        [
+          builders.memberExpression(
+            builders.identifier("defaultAuthGuard"),
+            builders.identifier("DefaultAuthGuard"),
+          ),
+          builders.memberExpression(
+            builders.identifier("nestAccessControl"),
+            builders.identifier("ACGuard"),
+          ),
+        ],
+      ),
+    );
+
+    //@ts-ignore
+    classDeclaration.decorators = [swaggerDecorator, guardDecorator];
+
+    if (classDeclaration) {
+      controllerMethodsIdsActionPairs(templateMapping, entity).forEach(
+        ({ methodId, action, entity, permissionType, methodName }) => {
+          setFileUploadFields();
+          // setAuthPermissions(
+          //   classDeclaration,
+          //   methodId,
+          //   action,
+          //   entity.name,
+          //   true,
+          //   EnumTemplateType.ControllerBase,
+          //   permissionType,
+          //   methodName,
+          // );
+          // if (permissionType === EnumEntityPermissionType.Public) {
+          //   const classMethod = getClassMethodById(classDeclaration, methodId);
+          //   classMethod?.decorators?.push(buildSwaggerForbiddenResponse());
+          // }
+        },
+      );
+    }
+
+    return eventParams;
   }
 }
 
