@@ -146,9 +146,7 @@ class BasicFileUploadPlugin implements AmplicationPlugin {
             ),
           ),
           ENTITY_FILES: builders.identifier(`${entityNameToLower}Files`),
-          ENTITY_FILES_TYPE: builders.identifier(
-            `${entityNameToLower}FilesTypes`,
-          ),
+          ENTITY_FILES_TYPE: builders.identifier(`${entityName}FilesTypes`),
         });
 
         const filePath = `${serverDirectories.srcDirectory}/${entityNameToLower}/base/${entityName}FileArgs.ts`;
@@ -304,6 +302,9 @@ class BasicFileUploadPlugin implements AmplicationPlugin {
   ) {
     const { templateMapping, entity, template, controllerBaseId } = eventParams;
 
+    const entityNameToLower = entity.name.toLowerCase();
+    const entityName = entity.name;
+
     interpolate(template, templateMapping);
 
     const classDeclaration = getClassDeclarationById(
@@ -314,6 +315,25 @@ class BasicFileUploadPlugin implements AmplicationPlugin {
     const fileFieldsInterceptorImport = builders.importDeclaration(
       [builders.importSpecifier(builders.identifier("FileFieldsInterceptor"))],
       builders.stringLiteral("@nestjs/platform-express"),
+    );
+
+    const generateUploadFields = builders.importDeclaration(
+      [
+        builders.importSpecifier(builders.identifier("generateUploadFields")),
+        builders.importSpecifier(builders.identifier("generateMulterOptions")),
+        builders.importSpecifier(builders.identifier("fileToJSON")),
+      ],
+      builders.stringLiteral("src/util/FileHelper"),
+    );
+
+    const entityFilesImport = builders.importDeclaration(
+      [
+        builders.importSpecifier(builders.identifier(`${entityName}FilesType`)),
+        builders.importSpecifier(
+          builders.identifier(`${entityNameToLower}Files`),
+        ),
+      ],
+      builders.stringLiteral(`./${entityName}FileArgs`),
     );
 
     // const defaultAuthGuardImport = builders.importDeclaration(
@@ -331,7 +351,11 @@ class BasicFileUploadPlugin implements AmplicationPlugin {
 
     addImports(
       eventParams.template,
-      [fileFieldsInterceptorImport].filter(
+      [
+        fileFieldsInterceptorImport,
+        generateUploadFields,
+        entityFilesImport,
+      ].filter(
         (x) => x, //remove nulls and undefined
       ) as namedTypes.ImportDeclaration[],
     );
@@ -346,32 +370,41 @@ class BasicFileUploadPlugin implements AmplicationPlugin {
       ),
     );
 
-    const guardDecorator = builders.decorator(
-      builders.callExpression(
-        builders.memberExpression(
-          builders.identifier("common"),
-          builders.identifier("UseGuards"),
-        ),
-        [
-          builders.memberExpression(
-            builders.identifier("defaultAuthGuard"),
-            builders.identifier("DefaultAuthGuard"),
-          ),
-          builders.memberExpression(
-            builders.identifier("nestAccessControl"),
-            builders.identifier("ACGuard"),
-          ),
-        ],
-      ),
-    );
+    // const guardDecorator = builders.decorator(
+    //   builders.callExpression(
+    //     builders.memberExpression(
+    //       builders.identifier("common"),
+    //       builders.identifier("UseGuards"),
+    //     ),
+    //     [
+    //       builders.memberExpression(
+    //         builders.identifier("defaultAuthGuard"),
+    //         builders.identifier("DefaultAuthGuard"),
+    //       ),
+    //       builders.memberExpression(
+    //         builders.identifier("nestAccessControl"),
+    //         builders.identifier("ACGuard"),
+    //       ),
+    //     ],
+    //   ),
+    // );
 
     //@ts-ignore
-    classDeclaration.decorators = [swaggerDecorator, guardDecorator];
+    // classDeclaration.decorators = [swaggerDecorator, guardDecorator];
 
     if (classDeclaration) {
       controllerMethodsIdsActionPairs(templateMapping, entity).forEach(
         ({ methodId, action, entity, permissionType, methodName }) => {
-          setFileUploadFields();
+          setFileUploadFields(
+            classDeclaration,
+            methodId,
+            action,
+            entity.name,
+            true,
+            // EnumTemplateType.ControllerBase,
+            permissionType,
+            methodName,
+          );
           // setAuthPermissions(
           //   classDeclaration,
           //   methodId,
