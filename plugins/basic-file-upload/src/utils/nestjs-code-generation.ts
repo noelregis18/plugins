@@ -1,5 +1,5 @@
 import { builders, namedTypes } from "ast-types";
-import { findConstructor } from "./ast";
+import { classProperty, findConstructor } from "./ast";
 
 export function buildNestJsFileInterceptorDecorator(
   entityFiles: namedTypes.Identifier,
@@ -40,23 +40,61 @@ export function buildNessJsInterceptorDecorator(
   );
 }
 
-export function buildSwaggerForbiddenResponse(): namedTypes.Decorator {
+export function buildSwaggerMultipartFormData(): namedTypes.Decorator {
   return builders.decorator(
     builders.callExpression(
       builders.memberExpression(
         builders.identifier("swagger"),
-        builders.identifier("ApiForbiddenResponse"),
+        builders.identifier("ApiConsumes"),
       ),
-      [
-        builders.objectExpression([
-          builders.objectProperty(
-            builders.identifier("type"),
-            builders.identifier("errors.ForbiddenException"),
-          ),
-        ]),
-      ],
+      [builders.stringLiteral("multipart/form-data")],
     ),
   );
+}
+
+export function buildNestCreateFilesParameter() {
+  //   (@common.UploadedFiles() files: { [key in UserFilesType]?: Express.Multer.File[]; })
+
+  const createFilesProp = builders.tsParameterProperty.from({
+    parameter: builders.identifier.from({
+      name: "files",
+      typeAnnotation: builders.tsTypeAnnotation(
+        builders.tsMappedType.from({
+          optional: true,
+          typeParameter: builders.tsTypeParameter(
+            "key",
+            builders.tsTypeReference(builders.identifier("UserFilesType")),
+          ),
+          typeAnnotation: builders.tsArrayType(
+            builders.tsTypeReference(
+              builders.tsQualifiedName(
+                builders.tsQualifiedName(
+                  builders.identifier("Express"),
+                  builders.identifier("Multer"),
+                ),
+                builders.identifier("File"),
+              ),
+            ),
+          ),
+        }),
+      ),
+    }),
+  });
+
+  //@ts-ignore
+  createFilesProp.decorators = [
+    builders.decorator(
+      builders.callExpression(
+        builders.memberExpression(
+          builders.identifier("common"),
+          builders.identifier("UploadedFiles"),
+        ),
+        [],
+      ),
+    ),
+  ];
+
+  return createFilesProp;
 }
 
 export function buildNestAccessControlDecorator(
