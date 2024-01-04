@@ -146,7 +146,7 @@ class BasicFileUploadPlugin implements AmplicationPlugin {
             ),
           ),
           ENTITY_FILES: builders.identifier(`${entityNameToLower}Files`),
-          ENTITY_FILES_TYPE: builders.identifier(`${entityName}FilesTypes`),
+          ENTITY_FILES_TYPE: builders.identifier(`${entityName}FilesType`),
         });
 
         const filePath = `${serverDirectories.srcDirectory}/${entityNameToLower}/base/${entityName}FileArgs.ts`;
@@ -391,6 +391,8 @@ class BasicFileUploadPlugin implements AmplicationPlugin {
 
     //@ts-ignore
     // classDeclaration.decorators = [swaggerDecorator, guardDecorator];
+
+    
 
     if (classDeclaration) {
       controllerMethodsIdsActionPairs(templateMapping, entity).forEach(
