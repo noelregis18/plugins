@@ -9,6 +9,7 @@ import {
   buildNestAccessControlDecorator,
   buildNestCreateFilesParameter,
   buildNestJsFileInterceptorDecorator,
+  buildNestJsonControllerBody,
   buildSwaggerMultipartFormData,
 } from "./nestjs-code-generation";
 
@@ -67,6 +68,8 @@ export function setFileUploadFields(
     classMethod.decorators?.push(buildSwaggerMultipartFormData());
 
     classMethod.params.push(buildNestCreateFilesParameter());
+
+    classMethod.body.body.unshift(...buildNestJsonControllerBody());
   }
 
   // if (permissionType === EnumEntityPermissionType.Public) {

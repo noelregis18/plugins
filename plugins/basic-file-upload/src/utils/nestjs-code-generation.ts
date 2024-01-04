@@ -97,6 +97,87 @@ export function buildNestCreateFilesParameter() {
   return createFilesProp;
 }
 
+export function buildNestJsonControllerBody() {
+  // const modifiedJSON = JSON.parse(data.roles as string);
+
+  // data.roles = modifiedJSON;
+
+  //  builders.expressionStatement(
+  //   builders.assignmentExpression(
+  //     "=",
+  //     builders.memberExpression(
+  //       builders.identifier("data"),
+  //       builders.identifier("roles"),
+  //     ),
+  //     builders.identifier("modifiedJSON"),
+  //   ),
+  // );
+
+  // builders.variableDeclaration("const", [
+  //   builders.variableDeclarator(
+  //     builders.identifier("modifiedJSON"),
+  //     builders.callExpression(
+  //       builders.memberExpression(
+  //         builders.identifier("JSON"),
+  //         builders.identifier("parse"),
+  //       ),
+  //       [
+  //         builders.tsAsExpression(
+  //           builders.identifier("data.roles"),
+  //           builders.tsStringKeyword(),
+  //         ),
+  //       ],
+  //     ),
+  //   ),
+  // ]);
+
+  return [
+    builders.variableDeclaration("const", [
+      builders.variableDeclarator(
+        builders.identifier("modifiedJSON"),
+        builders.callExpression(
+          builders.memberExpression(
+            builders.identifier("JSON"),
+            builders.identifier("parse"),
+          ),
+          [
+            builders.tsAsExpression(
+              builders.identifier("data.roles"),
+              builders.tsStringKeyword(),
+            ),
+          ],
+        ),
+      ),
+    ]),
+    builders.expressionStatement(
+      builders.assignmentExpression(
+        "=",
+        builders.memberExpression(
+          builders.identifier("data"),
+          builders.identifier("roles"),
+        ),
+        builders.identifier("modifiedJSON"),
+      ),
+    ),
+    // fileToJSON<UserCreateInput>(data, userFiles, files);
+    builders.expressionStatement(
+      builders.callExpression.from({
+        arguments: [
+          builders.identifier("data"),
+          builders.identifier("userFiles"),
+          builders.identifier("files"),
+        ],
+        callee: builders.identifier("fileToJSON"),
+        // typeArguments: [
+        //   builders.tsTypeReference(builders.identifier("UserCreateInput")),
+        // ],
+      }),
+    ),
+  ];
+}
+
+// ---- Not needed for the snippet ----
+
 export function buildNestAccessControlDecorator(
   resource: string,
   action: string,
