@@ -5,10 +5,10 @@ import {
 } from "@amplication/code-gen-types";
 import { getClassMethodById, removeDecoratorByName } from "./ast";
 import {
-  buildNessJsInterceptorDecorator,
   buildNestAccessControlDecorator,
   buildNestCreateFilesParameter,
-  buildNestJsFileInterceptorDecorator,
+  buildNestFileInterceptorDecorator,
+  buildNestFileToJsonControllerBody,
   buildNestJsonControllerBody,
   buildSwaggerMultipartFormData,
 } from "./nestjs-code-generation";
@@ -48,6 +48,17 @@ export function setFileUploadFields(
   const entityFiles = `${entityNameToLower}Files`;
 
   if (action === EnumEntityAction.Create) {
+    classMethod.body.body.unshift(...buildNestJsonControllerBody(), ...buildNestFileToJsonControllerBody());
+  } else if (action === EnumEntityAction.Update) {
+    classMethod.body.body.unshift(
+      ...buildNestFileToJsonControllerBody(),
+    );
+  }
+
+  if (
+    action === EnumEntityAction.Create ||
+    action === EnumEntityAction.Update
+  ) {
     // Find if there has already been a common.UseInterceptors decorator?
     const useInterceptorsDecorator = classMethod.decorators?.find(
       (decorator) =>
@@ -55,21 +66,43 @@ export function setFileUploadFields(
         decorator.expression.name === "UseInterceptors",
     );
 
-    if (!useInterceptorsDecorator) {
+    console.log(
+      "set-endpoint-permissions.ts, decorator",
+      useInterceptorsDecorator,
+    );
+
+    if (!useInterceptorsDecorator || !useInterceptorsDecorator.expression) {
       // If not present add one
-      const useFileInterceptor = buildNestJsFileInterceptorDecorator(
+      const useFileInterceptor = buildNestFileInterceptorDecorator(
         builders.identifier(entityFiles),
         builders.stringLiteral(entityName),
       );
       classMethod.decorators?.push(useFileInterceptor);
     } else {
+      // If present, add the file interceptor to the existing UseInterceptors decorator
+      const fileInterceptor = buildNestFileInterceptorDecorator(
+        builders.identifier(entityFiles),
+        builders.stringLiteral(entityName),
+      );
+
+      classMethod.decorators = classMethod.decorators?.map((decorator) => {
+        if (
+          namedTypes.Identifier.check(decorator.expression) &&
+          decorator.expression.name === "UseInterceptors"
+        ) {
+          const callExpression = decorator;
+          console.log(
+            "set-endpoint-permissions.ts, calleExpression",
+            callExpression,
+          );
+        }
+        return decorator;
+      });
     }
 
     classMethod.decorators?.push(buildSwaggerMultipartFormData());
 
     classMethod.params.push(buildNestCreateFilesParameter());
-
-    classMethod.body.body.unshift(...buildNestJsonControllerBody());
   }
 
   // if (permissionType === EnumEntityPermissionType.Public) {

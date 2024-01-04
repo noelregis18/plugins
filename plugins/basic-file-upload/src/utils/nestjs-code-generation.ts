@@ -1,7 +1,21 @@
 import { builders, namedTypes } from "ast-types";
 import { classProperty, findConstructor } from "./ast";
 
-export function buildNestJsFileInterceptorDecorator(
+export function buildNestFileInterceptorCaller(
+  entityFiles: namedTypes.Identifier,
+  entityName: namedTypes.StringLiteral,
+) {
+  return builders.callExpression(builders.identifier("FileFieldsInterceptor"), [
+    builders.callExpression(builders.identifier("generateUploadFields"), [
+      entityFiles,
+    ]),
+    builders.callExpression(builders.identifier("generateMulterOptions"), [
+      entityName,
+    ]),
+  ]);
+}
+
+export function buildNestFileInterceptorDecorator(
   entityFiles: namedTypes.Identifier,
   entityName: namedTypes.StringLiteral,
 ): namedTypes.Decorator {
@@ -11,34 +25,24 @@ export function buildNestJsFileInterceptorDecorator(
         builders.identifier("common"),
         builders.identifier("UseInterceptors"),
       ),
-      [
-        builders.callExpression(builders.identifier("FileFieldsInterceptor"), [
-          builders.callExpression(builders.identifier("generateUploadFields"), [
-            entityFiles,
-          ]),
-          builders.callExpression(
-            builders.identifier("generateMulterOptions"),
-            [entityName],
-          ),
-        ]),
-      ],
+      [buildNestFileInterceptorCaller(entityFiles, entityName)],
     ),
   );
 }
 
-export function buildNessJsInterceptorDecorator(
-  identifier: namedTypes.Identifier,
-): namedTypes.Decorator {
-  return builders.decorator(
-    builders.callExpression(
-      builders.memberExpression(
-        builders.identifier("common"),
-        builders.identifier("UseInterceptors"),
-      ),
-      [builders.identifier(identifier.name)],
-    ),
-  );
-}
+// export function buildNessJsInterceptorDecorator(
+//   identifier: namedTypes.Identifier,
+// ): namedTypes.Decorator {
+//   return builders.decorator(
+//     builders.callExpression(
+//       builders.memberExpression(
+//         builders.identifier("common"),
+//         builders.identifier("UseInterceptors"),
+//       ),
+//       [builders.identifier(identifier.name)],
+//     ),
+//   );
+// }
 
 export function buildSwaggerMultipartFormData(): namedTypes.Decorator {
   return builders.decorator(
@@ -98,6 +102,38 @@ export function buildNestCreateFilesParameter() {
 }
 
 export function buildNestJsonControllerBody() {
+  return [
+    builders.variableDeclaration("const", [
+      builders.variableDeclarator(
+        builders.identifier("modifiedJSON"),
+        builders.callExpression(
+          builders.memberExpression(
+            builders.identifier("JSON"),
+            builders.identifier("parse"),
+          ),
+          [
+            builders.tsAsExpression(
+              builders.identifier("data.roles"),
+              builders.tsStringKeyword(),
+            ),
+          ],
+        ),
+      ),
+    ]),
+    builders.expressionStatement(
+      builders.assignmentExpression(
+        "=",
+        builders.memberExpression(
+          builders.identifier("data"),
+          builders.identifier("roles"),
+        ),
+        builders.identifier("modifiedJSON"),
+      ),
+    ),
+  ];
+}
+
+export function buildNestFileToJsonControllerBody() {
   // const modifiedJSON = JSON.parse(data.roles as string);
 
   // data.roles = modifiedJSON;
@@ -132,33 +168,6 @@ export function buildNestJsonControllerBody() {
   // ]);
 
   return [
-    builders.variableDeclaration("const", [
-      builders.variableDeclarator(
-        builders.identifier("modifiedJSON"),
-        builders.callExpression(
-          builders.memberExpression(
-            builders.identifier("JSON"),
-            builders.identifier("parse"),
-          ),
-          [
-            builders.tsAsExpression(
-              builders.identifier("data.roles"),
-              builders.tsStringKeyword(),
-            ),
-          ],
-        ),
-      ),
-    ]),
-    builders.expressionStatement(
-      builders.assignmentExpression(
-        "=",
-        builders.memberExpression(
-          builders.identifier("data"),
-          builders.identifier("roles"),
-        ),
-        builders.identifier("modifiedJSON"),
-      ),
-    ),
     // fileToJSON<UserCreateInput>(data, userFiles, files);
     builders.expressionStatement(
       builders.callExpression.from({
