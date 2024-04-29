@@ -1,5 +1,7 @@
 {
   "editor.formatOnSave": true,
   "prettier.enable": true,
-  "prettier.requireConfig": false
+  "prettier.requireConfig": false,
+  "typescript.tsdk": "plugins/plugins/basic-file-upload/node_modules/typescript/lib",
+  "cph.general.saveLocation": ""
 }

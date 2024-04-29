@@ -177,6 +177,7 @@ export function buildNestFileToJsonControllerBody() {
           builders.identifier("files"),
         ],
         callee: builders.identifier("fileToJSON"),
+        // TODO: Add support for these or either hardcode
         // typeArguments: [
         //   builders.tsTypeReference(builders.identifier("UserCreateInput")),
         // ],

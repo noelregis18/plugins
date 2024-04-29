@@ -31,6 +31,8 @@ import {
   addAutoGenerationComment,
   addImports,
   addInjectableDependency,
+  findConstructor,
+  findContainedIdentifiers,
   getClassDeclarationById,
   interpolate,
 } from "./utils";
@@ -392,8 +394,6 @@ class BasicFileUploadPlugin implements AmplicationPlugin {
     //@ts-ignore
     // classDeclaration.decorators = [swaggerDecorator, guardDecorator];
 
-    
-
     if (classDeclaration) {
       controllerMethodsIdsActionPairs(templateMapping, entity).forEach(
         ({ methodId, action, entity, permissionType, methodName }) => {
@@ -423,6 +423,64 @@ class BasicFileUploadPlugin implements AmplicationPlugin {
           // }
         },
       );
+    }
+
+    // Find the last } in the template
+    const lastClass = template.program.body.find((node, index) => {
+      if (node.type === "ClassDeclaration") {
+        return index;
+      }
+    });
+
+    context.logger.warn("beforeCreateEntityControllerBase", {
+      lastBracketIndex
+    });
+
+    // Insert the word="DOWNLOAD_CONTROLLER" after the lastBracketIndex
+    // if (lastBracketIndex !== -1) {
+    //   template.program.body.splice(
+    //     lastBracketIndex + 1,
+    //     0,
+    //     builders.expressionStatement(
+    //       builders.ca
+    //   );
+    // }
+
+    const constructorNode = findConstructor(classDeclaration);
+
+    if (constructorNode) {
+
+      const 
+
+      
+  //@ts-ignore
+  createFilesProp.decorators = [
+    builders.decorator(
+      builders.callExpression(
+        builders.memberExpression(
+          builders.identifier("common"),
+          builders.identifier("Res"),
+        ),
+        [],
+      ),
+    ),
+  ];
+      const controllerStatement = builders.functionDeclaration(
+        builders.identifier("download"),
+        [
+          builders.identifier.from({
+            name: res,
+            typeAnnotation: builders.tsTypeReference(
+              builders.identifier("Response"),
+            ),
+
+          }),
+          builders.identifier.from({
+
+          })
+        ],
+      );
+      constructorNode.body.body.push(controllerStatement);
     }
 
     return eventParams;
